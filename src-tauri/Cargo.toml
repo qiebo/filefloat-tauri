@@ -1,0 +1,17 @@
+[package]
+name = "filefloat-tauri"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.2.0", features = ["tray-icon", "image-ico"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+urlencoding = "2.1"
+walkdir = "2.5"
+csv = "1.3"
+tauri-plugin-global-shortcut = "2.3.1"
