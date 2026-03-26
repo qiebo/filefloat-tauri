@@ -1,16 +1,7 @@
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Copy, ExternalLink, Folder, Scissors, Search, Trash2, X } from 'lucide-react'
+import { CornerDownLeft, Copy, ExternalLink, Folder, Scissors, Search, Trash2, X } from 'lucide-react'
 import { getFileFloat, type SearchResult, type SnapState } from './fileFloat'
-
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debouncedValue
-}
 
 export default function App() {
   const fileFloat = getFileFloat()
@@ -33,7 +24,7 @@ export default function App() {
   const isInputFocused = useRef(false)
   const isPanelHovered = useRef(false)
   const isContextMenuOpen = useRef(false)
-  const debouncedQuery = useDebounce(query, 220)
+  const lastSearchQuery = useRef('')
 
   const clearTimer = (ref: typeof collapseTimer | typeof iconCollapseTimer) => {
     if (ref.current) {
@@ -155,43 +146,33 @@ export default function App() {
     fileFloat.setWindowSize?.(expandedWidth, Math.max(minExpandedHeight, height))
   }, [expandedWidth, fileFloat, isExpanded, minExpandedHeight, results.length])
 
-  useEffect(() => {
-    let cancelled = false
-    const runSearch = async () => {
-      const term = debouncedQuery.trim()
-      if (!term) {
-        setResults([])
-        setIsLoading(false)
-        setSelectedIndex(-1)
-        setContextMenu(null)
-        return
-      }
-
-      setIsLoading(true)
-      try {
-        const next = await fileFloat.searchFiles(term)
-        if (!cancelled) {
-          const normalized = Array.isArray(next) ? next : []
-          setResults(normalized)
-          setSelectedIndex(normalized.length > 0 ? 0 : -1)
-          setContextMenu(null)
-        }
-      } catch {
-        if (!cancelled) {
-          setResults([])
-          setSelectedIndex(-1)
-          setContextMenu(null)
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
+  const handleSearch = useCallback(async () => {
+    const term = query.trim()
+    if (!term) {
+      setResults([])
+      setIsLoading(false)
+      setSelectedIndex(-1)
+      setContextMenu(null)
+      lastSearchQuery.current = ''
+      return
     }
 
-    void runSearch()
-    return () => {
-      cancelled = true
+    setIsLoading(true)
+    try {
+      const next = await fileFloat.searchFiles(term)
+      const normalized = Array.isArray(next) ? next : []
+      setResults(normalized)
+      setSelectedIndex(normalized.length > 0 ? 0 : -1)
+      setContextMenu(null)
+      lastSearchQuery.current = term
+    } catch {
+      setResults([])
+      setSelectedIndex(-1)
+      setContextMenu(null)
+    } finally {
+      setIsLoading(false)
     }
-  }, [debouncedQuery, fileFloat])
+  }, [fileFloat, query])
 
   const handlePanelMouseLeave = useCallback(() => {
     if (isContextMenuOpen.current) return
@@ -367,9 +348,8 @@ export default function App() {
   }, [clearMenuActionTimer])
 
   const handleInputKeyDown = useCallback((e: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (results.length === 0) return
-
     if (e.key === 'ArrowDown') {
+      if (results.length === 0) return
       e.preventDefault()
       setSelectedIndex((current) => {
         if (current < 0) return 0
@@ -379,6 +359,7 @@ export default function App() {
     }
 
     if (e.key === 'ArrowUp') {
+      if (results.length === 0) return
       e.preventDefault()
       setSelectedIndex((current) => {
         if (current < 0) return results.length - 1
@@ -389,13 +370,21 @@ export default function App() {
 
     if (e.key === 'Enter') {
       e.preventDefault()
-      const index = selectedIndex >= 0 && selectedIndex < results.length ? selectedIndex : 0
-      const target = results[index]
-      if (target) {
-        openResult(target)
+      // If query has changed since last search, trigger search.
+      // Otherwise, if we have results, open the selected one.
+      if (query.trim() !== lastSearchQuery.current) {
+        void handleSearch()
+      } else if (results.length > 0) {
+        const index = selectedIndex >= 0 && selectedIndex < results.length ? selectedIndex : 0
+        const target = results[index]
+        if (target) {
+          openResult(target)
+        }
+      } else {
+        void handleSearch()
       }
     }
-  }, [openResult, results, selectedIndex])
+  }, [handleSearch, lastSearchQuery, openResult, query, results, selectedIndex])
 
   const handleResultActivate = useCallback((result: SearchResult, index: number) => {
     setSelectedIndex(index)
@@ -475,6 +464,17 @@ export default function App() {
             />
 
             {isLoading ? <span className="spinner" aria-label="loading" /> : null}
+
+            {query.length > 0 && !isLoading && (
+              <button 
+                className="search-trigger-btn" 
+                type="button" 
+                onClick={() => void handleSearch()} 
+                title="搜索 (Enter)"
+              >
+                <CornerDownLeft size={14} strokeWidth={2.5} />
+              </button>
+            )}
 
             <button className="close-btn" type="button" onClick={() => void handleClose()} aria-label="关闭搜索">
               <X size={15} />

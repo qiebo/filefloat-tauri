@@ -168,6 +168,26 @@ button {
   color: rgba(130, 155, 200, 0.4);
 }
 
+.search-trigger-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(106, 176, 255, 0.1);
+  color: rgba(106, 176, 255, 0.8);
+  display: grid;
+  place-items: center;
+  margin-right: 4px;
+  border: 1px solid rgba(106, 176, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.search-trigger-btn:hover {
+  background: rgba(106, 176, 255, 0.2);
+  color: #6ab0ff;
+  border-color: rgba(106, 176, 255, 0.3);
+}
+
 .close-btn {
   width: 28px;
   height: 28px;
